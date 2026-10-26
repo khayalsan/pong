@@ -1,16 +1,21 @@
+mod rate_limit;
+
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::net::TcpStream;
 use std::time::Duration;
 use axum::{Json, Router};
-use axum::extract::{ConnectInfo, Path};
-use axum::handler::HandlerWithoutStateExt;
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use serde_json::json;
 use tokio::io::AsyncWriteExt;
 use tokio::time::timeout;
 use tracing::{info, Level};
+
+use rate_limit::create_rate_limiter;
+use crate::rate_limit::IpRateLimiter;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()>{
@@ -18,8 +23,11 @@ async fn main() -> std::io::Result<()>{
         .with_max_level(Level::INFO)
         .init();
 
+    let limiter = Arc::new(create_rate_limiter());
+
     let app = Router::new()
-        .route("/{port}", get(check_port));
+        .route("/{port}", get(check_port))
+        .with_state(limiter);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:6000").await?;
     info!("Server is listening on port 6000");
@@ -28,8 +36,17 @@ async fn main() -> std::io::Result<()>{
     Ok(())
 }
 
-async fn check_port(ConnectInfo(client_addr): ConnectInfo<SocketAddr>, Path(port): Path<u16>) -> impl IntoResponse {
+type AppState = Arc<IpRateLimiter>;
+
+async fn check_port(State(limiter): State<AppState>, ConnectInfo(client_addr): ConnectInfo<SocketAddr>, Path(port): Path<u16>) -> Response {
     let client_ip = client_addr.ip();
+
+    if limiter.check_key(&client_ip).is_err() {
+        info!("Rate limit reached by {client_ip}");
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
+
+
     let address = format!("{client_ip}:{port}");
     let duration = Duration::from_secs(3);
     let connection = TcpStream::connect(&address);
@@ -56,5 +73,5 @@ async fn check_port(ConnectInfo(client_addr): ConnectInfo<SocketAddr>, Path(port
         Json(json!({
             "reachable": reachable,
         })),
-    )
+    ).into_response()
 }
