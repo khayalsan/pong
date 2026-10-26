@@ -11,9 +11,9 @@ pub type IpRateLimiter = RateLimiter<
     DefaultClock
 >;
 
-pub fn create_rate_limiter() -> IpRateLimiter {
+pub fn create_rate_limiter(limit_per_minute: u32) -> IpRateLimiter {
     let quota = Quota::per_minute(
-        NonZeroU32::new(5).unwrap()
+        NonZeroU32::new(limit_per_minute).unwrap()
     );
 
     RateLimiter::keyed(quota)

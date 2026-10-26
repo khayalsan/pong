@@ -19,11 +19,20 @@ use crate::rate_limit::IpRateLimiter;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()>{
+    let args: Vec<String> = std::env::args().collect();
+
+    let limit : u32;
+
+    if args.len() > 1 {
+        limit = args[1].parse::<u32>().unwrap();
+    }
+    else { limit = 5 }
+
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .init();
 
-    let limiter = Arc::new(create_rate_limiter());
+    let limiter = Arc::new(create_rate_limiter(limit));
 
     let app = Router::new()
         .route("/{port}", get(check_port))
