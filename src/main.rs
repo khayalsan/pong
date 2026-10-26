@@ -23,10 +23,10 @@ async fn main() -> std::io::Result<()>{
 
     let limit : u32;
 
-    if args.len() > 1 {
-        limit = args[1].parse::<u32>().unwrap();
-    }
-    else { limit = 5 }
+    limit = match args.get(1) {
+        Some(value) => { value.parse::<u32>().unwrap_or(5) }
+        None => { 5 }
+    };
 
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
@@ -39,7 +39,7 @@ async fn main() -> std::io::Result<()>{
         .with_state(limiter);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:6000").await?;
-    info!("Server is listening on port 6000");
+    info!("Server is listening on port 6000 with rate limit:{limit}");
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
     Ok(())
@@ -51,7 +51,7 @@ async fn check_port(State(limiter): State<AppState>, ConnectInfo(client_addr): C
     let client_ip = client_addr.ip();
 
     if limiter.check_key(&client_ip).is_err() {
-        info!("Rate limit reached by {client_ip}");
+        info!("{client_ip}: Rate limit reached");
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     }
 
@@ -65,15 +65,15 @@ async fn check_port(State(limiter): State<AppState>, ConnectInfo(client_addr): C
 
     match result {
         Ok(Ok(mut stream)) => {
-            info!("Connected to {address}");
+            info!("{client_ip}: Connected to {address}");
             reachable = true;
             stream.shutdown().await.expect("Shutdown should succeed");
         }
         Ok(Err(error)) => {
-            info!("Failed to connect to {address}: {error:?}");
+            info!("{client_ip}: Failed to connect to {address}: {error:?}");
         }
         Err(_) => {
-            info!("Connection Timed out");
+            info!("{client_ip}: Connection Timed out");
         }
     }
 

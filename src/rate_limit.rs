@@ -1,6 +1,5 @@
 ﻿use std::net::IpAddr;
 use std::num::NonZeroU32;
-use std::time::Duration;
 use governor::clock::DefaultClock;
 use governor::{Quota, RateLimiter};
 use governor::state::keyed::DefaultKeyedStateStore;
