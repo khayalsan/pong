@@ -16,7 +16,6 @@ curl https://pong.khayal.dev/25565
 {
   "reachable": true
 }
-
 ```
 Rate limit: 15 requests per minute per IP address.
 ## How It Works
@@ -281,3 +280,7 @@ A successful TCP connection confirms that the port accepted a connection from Po
 - [Tracing](https://github.com/tokio-rs/tracing) - Structured logging
 
 ## License
+
+Pong is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Khayal Alizada
